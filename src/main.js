@@ -25,24 +25,44 @@ async function getRemoteFile(file, url) {
                 response.pipe(localFile);
                 response.on('error', function(err) {
                     console.log("file download error");
-                    resolve(false);
+                    resolve({
+                        status: false,
+                        result: false,
+                    });
                 })
                 localFile.on('finish', function() {
                     localFile.close();
-                    resolve(true);
+                    resolve({
+                        status: true,
+                        result: true,
+                    });
                 })
             }
             else {
                 response.resume();
-                resolve(false);
+                resolve({
+                    status: true,
+                    result: false,
+                });
             }
         })
         .on('error', function(e) {
             console.log(e);
+            resolve({
+                status: false,
+                result: false,
+            });
         });
         request.end();
-    })
-    
+    });    
+}
+
+async function getRemoteFileReliable(file, url) {
+    let ret = {};
+    do {
+        ret = await getRemoteFile(file, url);        
+    } while (ret.status == false);    
+    return ret.result;
 }
 
 async function getMasterIndex() {
@@ -50,7 +70,7 @@ async function getMasterIndex() {
 
     let fileName = ROOT_DIR + INSPECTOR + MASTER_XML;
     let indexURL = MAVEN_URL + INSPECTOR + MASTER_XML;
-    let result = await getRemoteFile(fileName, indexURL);
+    let result = await getRemoteFileReliable(fileName, indexURL);
     if (result == true)
         await parseMasterIndex(fileName);
     console.log("--------DOWNLOAD END------------");
@@ -79,7 +99,7 @@ async function getGroupIndex(groupDirectory, package) {
     let fileName = groupDirectory + INSPECTOR + GROUP_XML;
     let groupURL = MAVEN_URL + INSPECTOR + package.replace(/\./g, '/');
     let groupIndexURL = groupURL + INSPECTOR + GROUP_XML;
-    let result = await getRemoteFile(fileName, groupIndexURL)
+    let result = await getRemoteFileReliable(fileName, groupIndexURL)
     if (result == true)
         await parseGroupIndex(groupDirectory, fileName, package, groupURL);
 }
@@ -127,7 +147,7 @@ async function getMetaData(versionDirectory, versionURL, groupName, version) {
     let jsonFileName = "artifact-metadata.json";
     let metaDirectory = versionDirectory + INSPECTOR + jsonFileName;
     let metaURL = versionURL + INSPECTOR + jsonFileName;
-    let result = await getRemoteFile(metaDirectory, metaURL)
+    let result = await getRemoteFileReliable(metaDirectory, metaURL)
     if (result == true) {
         let dump = fs.readFileSync(metaDirectory, 'utf8');
         fs.rmSync(metaDirectory);
@@ -145,7 +165,7 @@ async function getMetaData(versionDirectory, versionURL, groupName, version) {
 async function downloadArtifact(versionDirectory, versionURL, artifactName) {
     let artifaceDirectory = versionDirectory + INSPECTOR + artifactName;
     let metaDirectory = versionURL + INSPECTOR + artifactName;
-    let result = await getRemoteFile(artifaceDirectory, metaDirectory);
+    let result = await getRemoteFileReliable(artifaceDirectory, metaDirectory);
 }
 
 
